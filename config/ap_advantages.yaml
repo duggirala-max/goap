@@ -1,0 +1,90 @@
+# Andhra Pradesh FDI Advantages — Sector-Specific
+# Based on AP Industrial Development Policy 4.0 (2024-29)
+
+general:
+  policy_framework: "AP Industrial Development Policy 4.0 (2024-29)"
+  clearance_timeline: "Single Desk Portal — 21-day clearance for large/mega projects"
+  corridors:
+    - "Visakhapatnam-Chennai Industrial Corridor"
+    - "Chennai-Bengaluru Industrial Corridor"
+    - "Hyderabad-Bengaluru Industrial Corridor"
+  key_ports:
+    - "Krishnapatnam Port (deep-water, 24/7 operations)"
+    - "Visakhapatnam Port (major port, industrial zone)"
+    - "Kakinada Port (petrochemical corridor access)"
+  infrastructure:
+    - "Sri City — integrated business city with plug-and-play infrastructure"
+    - "APIIC industrial parks across 13 districts"
+    - "Dedicated freight corridors"
+  incentives:
+    capital_subsidy: "Up to 25-30% of EFCI for mega projects"
+    sgst_reimbursement: "100% Net SGST reimbursement for 5 years"
+    power_subsidy: "Concessional power tariffs for manufacturing"
+    stamp_duty: "100% stamp duty reimbursement"
+    land: "Ready-to-use industrial plots at competitive rates"
+
+sector_advantages:
+  automotive_components:
+    pitch: >
+      AP sits on the Chennai-Bengaluru auto corridor — India's Detroit.
+      Kia Motors operates its only Indian plant in Anantapur, AP.
+      Direct access to OEMs: Hyundai, Renault-Nissan, BMW (Chennai), and Kia (AP).
+      Labor cost is 1/8th of Germany. Skilled workforce from ITIs and engineering colleges.
+      100% SGST reimbursement for 5 years. Power at industrial rates ~₹5/unit vs €0.25+/kWh in Germany.
+    key_facts:
+      - "Kia India plant in Anantapur — 300,000 units/year capacity"
+      - "60+ auto component companies already in Sri City"
+      - "Chennai auto cluster 100km away — 40% of India's auto output"
+      - "Labor cost: ~$300-500/month for skilled technicians vs €3,500+ in Germany"
+
+  ev_components:
+    pitch: >
+      AP has a dedicated Sustainable Electric Mobility Policy.
+      India's EV market growing 40%+ CAGR. PLI scheme offers additional 8-18% incentives
+      on incremental sales for battery and EV components.
+      Sri City and Visakhapatnam positioned as EV component hubs.
+      Proximity to lithium processing (India's first lithium refinery planned).
+    key_facts:
+      - "AP Sustainable Electric Mobility Policy — dedicated EV incentives"
+      - "India PLI for ACC batteries: ₹18,100 Cr allocated"
+      - "EV penetration in India at ~6% — massive headroom"
+      - "Multiple EV OEMs scouting AP for component sourcing"
+
+  manufacturing:
+    pitch: >
+      Power costs 60-70% lower than Germany. Industrial land at 1/10th the cost.
+      Skilled labor pool from 350+ engineering colleges in AP.
+      Visakhapatnam Steel Plant provides raw material access.
+      Port-led industrialization enables export-oriented manufacturing.
+      Capital subsidy up to 30% for mega projects.
+    key_facts:
+      - "Industrial power: ~₹5-7/unit vs €0.25-0.35/kWh in Germany"
+      - "Land: ₹5-15 Lakhs/acre in industrial parks vs €50-200/sqm in Germany"
+      - "350+ engineering colleges producing 200,000+ graduates/year"
+      - "Visakhapatnam — major industrial port city with steel, pharma, IT clusters"
+
+  food_processing:
+    pitch: >
+      AP is India's #1 producer of multiple crops — aquaculture, rice, mangoes, spices.
+      Dedicated AP Food Processing Policy 4.0 with sector-specific incentives.
+      Cold chain infrastructure being built along industrial corridors.
+      Raw material costs 50-70% lower than Europe.
+      Mega Food Parks with plug-and-play infrastructure.
+    key_facts:
+      - "India's largest aquaculture producer — AP accounts for 70%+ of shrimp exports"
+      - "AP Food Processing Policy 4.0 — dedicated incentive framework"
+      - "3 Mega Food Parks operational in AP"
+      - "Access to 1.4B consumer market + export via Krishnapatnam/Vizag ports"
+
+  food_processing_equipment:
+    pitch: >
+      India's food processing sector is $535B and growing 10%+ annually.
+      Only 10% of India's food is processed vs 65% in Germany — massive mechanization gap.
+      AP's food processing growth creates direct demand for German-quality equipment.
+      Local assembly/manufacturing reduces import duties (18% GST on imported machinery).
+      Krones already building a plant in Karnataka — AP offers competitive alternative.
+    key_facts:
+      - "India food processing equipment market growing 8-10% CAGR"
+      - "Local manufacturing avoids 18% GST + customs on imports"
+      - "Multivac already has production in Rajasthan"
+      - "AP's aquaculture and dairy sectors need advanced processing lines"

@@ -1,0 +1,63 @@
+name: GoAP — Update FDI Target List
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_news:
+        description: 'Skip news scanning (use seed list only)'
+        required: false
+        type: boolean
+        default: false
+      skip_groq:
+        description: 'Skip Groq email generation'
+        required: false
+        type: boolean
+        default: false
+      max_companies:
+        description: 'Maximum companies to output'
+        required: false
+        type: number
+        default: 20
+      dry_run:
+        description: 'Dry run (no Sheets update)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  update-targets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run GoAP Pipeline
+        env:
+          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          ARGS=""
+          if [ "${{ inputs.skip_news }}" = "true" ]; then
+            ARGS="$ARGS --skip-news"
+          fi
+          if [ "${{ inputs.skip_groq }}" = "true" ]; then
+            ARGS="$ARGS --skip-groq"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          ARGS="$ARGS --max-companies ${{ inputs.max_companies }}"
+
+          python src/main.py $ARGS

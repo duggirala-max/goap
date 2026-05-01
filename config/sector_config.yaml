@@ -1,0 +1,175 @@
+# GoAP Sector Configuration
+# Pain signal keywords and scoring weights for each target sector
+
+sectors:
+  automotive_components:
+    display_name: "Automotive Components"
+    keywords:
+      - "automotive supplier"
+      - "Zulieferer"
+      - "auto parts"
+      - "Tier 1 supplier"
+      - "Tier 2 supplier"
+      - "powertrain"
+      - "drivetrain"
+      - "braking systems"
+      - "chassis"
+    pain_keywords:
+      - "restructuring"
+      - "Restrukturierung"
+      - "plant closure"
+      - "Werksschließung"
+      - "job cuts"
+      - "Stellenabbau"
+      - "insolvency"
+      - "Insolvenz"
+      - "Kurzarbeit"
+      - "cost cutting"
+      - "profit warning"
+      - "Gewinnwarnung"
+      - "headcount reduction"
+      - "site consolidation"
+      - "capacity reduction"
+      - "production shift"
+    expansion_keywords:
+      - "overseas expansion"
+      - "international growth"
+      - "best-cost country"
+      - "nearshoring"
+      - "offshoring"
+      - "new plant"
+      - "greenfield"
+      - "joint venture"
+      - "production relocation"
+
+  ev_components:
+    display_name: "EV / Electric Mobility"
+    keywords:
+      - "electric vehicle"
+      - "EV battery"
+      - "battery cell"
+      - "e-mobility"
+      - "Elektromobilität"
+      - "charging infrastructure"
+      - "power electronics"
+      - "electric drivetrain"
+      - "battery management"
+    pain_keywords:
+      - "restructuring"
+      - "scaling challenges"
+      - "supply chain pressure"
+      - "cost overrun"
+      - "delayed ramp-up"
+      - "subsidy cuts"
+      - "overcapacity"
+      - "margin pressure"
+    expansion_keywords:
+      - "gigafactory"
+      - "cell production"
+      - "Asia expansion"
+      - "India plant"
+      - "localization"
+      - "JV partner"
+
+  manufacturing:
+    display_name: "Manufacturing / Industrial"
+    keywords:
+      - "manufacturing"
+      - "Maschinenbau"
+      - "industrial equipment"
+      - "precision engineering"
+      - "CNC machining"
+      - "die casting"
+      - "forging"
+      - "stamping"
+      - "metal forming"
+    pain_keywords:
+      - "energy costs"
+      - "Energiekosten"
+      - "labor shortage"
+      - "Fachkräftemangel"
+      - "restructuring"
+      - "insolvency"
+      - "production decline"
+      - "order backlog decline"
+      - "capacity underutilization"
+    expansion_keywords:
+      - "production abroad"
+      - "cost-competitive location"
+      - "global footprint"
+      - "new facility"
+
+  food_processing:
+    display_name: "Food Processing"
+    keywords:
+      - "food processing"
+      - "Lebensmittelverarbeitung"
+      - "dairy processing"
+      - "meat processing"
+      - "bakery"
+      - "confectionery"
+      - "frozen food"
+      - "beverage"
+      - "snack"
+    pain_keywords:
+      - "energy costs"
+      - "raw material prices"
+      - "supply chain disruption"
+      - "regulatory burden"
+      - "margin squeeze"
+      - "labor shortage"
+      - "compliance costs"
+    expansion_keywords:
+      - "emerging markets"
+      - "Asia expansion"
+      - "new production site"
+      - "capacity expansion"
+
+  food_processing_equipment:
+    display_name: "Food Processing Equipment"
+    keywords:
+      - "food processing equipment"
+      - "packaging machinery"
+      - "Verpackungsmaschinen"
+      - "filling equipment"
+      - "processing line"
+      - "food technology"
+      - "Nahrungsmitteltechnik"
+    pain_keywords:
+      - "order decline"
+      - "market slowdown"
+      - "cost pressure"
+      - "competition from China"
+      - "margin pressure"
+    expansion_keywords:
+      - "India operations"
+      - "localization"
+      - "regional hub"
+      - "service center"
+      - "assembly plant"
+
+# Pain signal scoring weights
+scoring:
+  pain_signals:
+    insolvency: 10
+    restructuring: 9
+    plant_closure: 9
+    job_cuts: 8
+    profit_warning: 8
+    kurzarbeit: 7
+    cost_cutting: 6
+    energy_cost_pressure: 6
+    labor_shortage: 5
+    margin_pressure: 5
+    order_decline: 5
+    expansion_signal: 4
+    regulatory_burden: 3
+
+  # Bonus for Mittelstand-sized companies
+  size_preference:
+    mittelstand: 3  # 50-5000 employees
+    mid_cap: 2      # 5000-20000
+    large_cap: 0    # >20000 (only if clear expansion signal)
+
+  # Minimum score to include in output
+  min_score: 5
