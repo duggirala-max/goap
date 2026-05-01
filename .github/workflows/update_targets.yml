@@ -1,4 +1,4 @@
-name: GoAP — Update FDI Target List
+name: GoAP - Update FDI Target List
 
 on:
   workflow_dispatch:
@@ -10,6 +10,16 @@ on:
         default: false
       skip_groq:
         description: 'Skip Groq email generation'
+        required: false
+        type: boolean
+        default: false
+      skip_scrape:
+        description: 'Skip contact email scraping from websites'
+        required: false
+        type: boolean
+        default: false
+      skip_verify:
+        description: 'Skip SMTP email verification'
         required: false
         type: boolean
         default: false
@@ -27,7 +37,7 @@ on:
 jobs:
   update-targets:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -54,6 +64,12 @@ jobs:
           fi
           if [ "${{ inputs.skip_groq }}" = "true" ]; then
             ARGS="$ARGS --skip-groq"
+          fi
+          if [ "${{ inputs.skip_scrape }}" = "true" ]; then
+            ARGS="$ARGS --skip-scrape"
+          fi
+          if [ "${{ inputs.skip_verify }}" = "true" ]; then
+            ARGS="$ARGS --skip-verify"
           fi
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             ARGS="$ARGS --dry-run"

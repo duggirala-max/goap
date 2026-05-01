@@ -1,5 +1,7 @@
 """
-GoAP Groq Enricher — Generates targeted outreach emails using Groq API.
+GoAP Groq Enricher -- Generates targeted outreach emails using Groq API.
+Produces DUAL drafts: English + Simple German.
+Includes sender identity and minister CC mention.
 """
 
 import os
@@ -19,6 +21,11 @@ class GroqEnricher:
     GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
     MODEL = "llama-3.3-70b-versatile"
 
+    # Sender identity
+    SENDER_NAME = "Saidurga Gowtham Duggirala"
+    SENDER_ROLE = "Government of Andhra Pradesh"
+    MINISTER_CC = "Hon'ble Minister for Industries, Commerce and Food Processing"
+
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.environ.get("GROQ_API_KEY")
         if not self.api_key:
@@ -27,7 +34,7 @@ class GroqEnricher:
         else:
             self.enabled = True
 
-    def _call_groq(self, prompt: str, max_tokens: int = 500) -> Optional[str]:
+    def _call_groq(self, prompt: str, max_tokens: int = 800) -> Optional[str]:
         """Make a single Groq API call."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -39,12 +46,14 @@ class GroqEnricher:
                 {
                     "role": "system",
                     "content": (
-                        "You are a senior government investment advisor writing outreach emails "
-                        "on behalf of the Government of Andhra Pradesh, India. "
+                        "You are a senior government investment advisor drafting outreach emails "
+                        "on behalf of Saidurga Gowtham Duggirala, representing the Government of Andhra Pradesh, India. "
                         "Your tone is professional, direct, and respectful. "
                         "You write short, high-impact emails that get responses from C-level executives. "
                         "No fluff. No buzzwords. Every sentence must add value. "
-                        "The email should feel like it was written by someone who did their homework on the company."
+                        "The email should feel like it was written by someone who did their homework on the company. "
+                        "CRITICAL FORMATTING RULE: NEVER use em dashes, en dashes, or any dash longer than a regular hyphen (-). "
+                        "Use commas, semicolons, colons, or periods instead. No exceptions."
                     )
                 },
                 {
@@ -65,19 +74,16 @@ class GroqEnricher:
             )
             response.raise_for_status()
             data = response.json()
-            return data["choices"][0]["message"]["content"].strip()
+            result = data["choices"][0]["message"]["content"].strip()
+            # Post-process: remove any em/en dashes that slipped through
+            result = result.replace("\u2014", "-").replace("\u2013", "-").replace("\u2012", "-")
+            return result
         except requests.exceptions.RequestException as e:
             logger.error(f"Groq API call failed: {e}")
             return None
 
-    def generate_outreach_email(self, company: Dict, ap_advantages: Dict) -> str:
-        """
-        Generate a targeted outreach email for a specific company.
-        """
-        if not self.enabled:
-            return "[Groq API key not configured — email not generated]"
-
-        # Build context for the LLM
+    def _build_prompt(self, company: Dict, ap_advantages: Dict, language: str = "english") -> str:
+        """Build the email generation prompt for a specific language."""
         company_name = company.get("name", "")
         sector = company.get("sector", "")
         country = company.get("country", "Germany")
@@ -96,6 +102,29 @@ class GroqEnricher:
         ap_facts = sector_advantages.get("key_facts", [])
         general = ap_advantages.get("general", {})
         incentives = general.get("incentives", {})
+
+        # Public contact emails for forwarding mention
+        public_contacts = company.get("public_contacts", {})
+        fallback_email = public_contacts.get("fallback_email", "")
+        forwarding_note = ""
+        if fallback_email:
+            forwarding_note = (
+                f"\nNOTE: This email is also being sent to the company's public contact ({fallback_email}) "
+                "to ensure it reaches the right person. Mention this briefly in the email."
+            )
+
+        if language == "german":
+            lang_instruction = """
+LANGUAGE: Write the ENTIRE email in simple, professional German (formal "Sie" form).
+Do NOT use any English words except proper nouns and technical terms.
+Do NOT use em dashes or en dashes anywhere. Use commas, semicolons, or periods instead.
+Keep it simple and clear. Avoid complex sentence structures.
+"""
+        else:
+            lang_instruction = """
+LANGUAGE: Write in clear, professional English.
+Do NOT use em dashes or en dashes anywhere. Use commas, semicolons, or periods instead.
+"""
 
         prompt = f"""Write a SHORT outreach email (max 150 words) for the following target:
 
@@ -118,42 +147,74 @@ INCENTIVES:
 - Power: {incentives.get('power_subsidy', 'Concessional rates')}
 - Land: {incentives.get('land', 'Ready industrial plots')}
 
-RULES:
-1. Subject line must reference the company's specific situation (not generic)
-2. Opening line must show you know their pain point
-3. Body must present AP as a concrete solution to their specific problem
-4. Include 2-3 hard numbers (cost savings, incentives, market size)
-5. Close with a specific ask (15-min call, site visit invitation)
-6. Sign off as "Office of Industries & Commerce, Government of Andhra Pradesh"
-7. Keep it under 150 words. Every word must earn its place.
-"""
+{lang_instruction}
 
-        result = self._call_groq(prompt)
-        if result:
-            return result
-        return "[Email generation failed — Groq API error]"
+MANDATORY ELEMENTS (include ALL of these):
+1. Subject line must reference the company's specific situation (not generic)
+2. Opening line: "My name is Saidurga Gowtham Duggirala and I am reaching out to you on behalf of the Government of Andhra Pradesh, India."
+3. Second line: "The Hon'ble Minister for Industries, Commerce and Food Processing is marked in CC on this communication."
+4. Body must show you understand their specific pain point
+5. Present Andhra Pradesh as a concrete solution with 2-3 hard numbers
+6. Close with a specific ask (15-min call or site visit invitation)
+7. Sign off as:
+   "Saidurga Gowtham Duggirala
+   Office of Industries & Commerce
+   Government of Andhra Pradesh, India"
+8. NEVER use em dashes or en dashes. Use hyphens (-), commas, or periods only.
+9. Keep it under 150 words after the subject line.
+{forwarding_note}
+"""
+        return prompt
+
+    def generate_outreach_email(self, company: Dict, ap_advantages: Dict) -> Dict:
+        """
+        Generate DUAL outreach emails (English + German) for a specific company.
+        Returns dict with 'english' and 'german' keys.
+        """
+        if not self.enabled:
+            return {
+                "english": "[Groq API key not configured]",
+                "german": "[Groq API key not configured]"
+            }
+
+        # Generate English draft
+        en_prompt = self._build_prompt(company, ap_advantages, language="english")
+        english_draft = self._call_groq(en_prompt)
+
+        time.sleep(1.0)  # Brief pause between calls
+
+        # Generate German draft
+        de_prompt = self._build_prompt(company, ap_advantages, language="german")
+        german_draft = self._call_groq(de_prompt)
+
+        return {
+            "english": english_draft or "[English email generation failed]",
+            "german": german_draft or "[German email generation failed]"
+        }
 
     def enrich_all(self, companies: list, ap_advantages: Dict, delay: float = 1.5) -> list:
         """
         Generate outreach emails for all companies.
-        Returns companies list with 'outreach_email' field added.
+        Returns companies list with 'outreach_email_en' and 'outreach_email_de' fields added.
         """
         if not self.enabled:
             logger.warning("Groq API disabled. Skipping email generation for all companies.")
             for company in companies:
-                company["outreach_email"] = "[Groq API key not configured]"
+                company["outreach_email_en"] = "[Groq API key not configured]"
+                company["outreach_email_de"] = "[Groq API key not configured]"
             return companies
 
-        logger.info(f"Generating outreach emails for {len(companies)} companies via Groq API...")
+        logger.info(f"Generating dual outreach emails (EN+DE) for {len(companies)} companies via Groq API...")
 
         for i, company in enumerate(companies):
-            logger.info(f"  [{i+1}/{len(companies)}] Generating email for {company.get('name', 'Unknown')}...")
-            email = self.generate_outreach_email(company, ap_advantages)
-            company["outreach_email"] = email
+            logger.info(f"  [{i+1}/{len(companies)}] Generating emails for {company.get('name', 'Unknown')}...")
+            drafts = self.generate_outreach_email(company, ap_advantages)
+            company["outreach_email_en"] = drafts["english"]
+            company["outreach_email_de"] = drafts["german"]
 
-            # Rate limiting
+            # Rate limiting (2 API calls per company, so slightly longer delay)
             if i < len(companies) - 1:
                 time.sleep(delay)
 
-        logger.info("Email generation complete.")
+        logger.info("Dual email generation complete.")
         return companies

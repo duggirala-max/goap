@@ -1,5 +1,5 @@
 """
-GoAP Sheets Pusher — Pushes target account list to Google Sheets.
+GoAP Sheets Pusher -- Pushes target account list to Google Sheets.
 Creates a new tab per run (date-stamped). Deduplicates against existing tabs.
 """
 
@@ -25,13 +25,16 @@ HEADERS = [
     "Evidence Type",
     "Decision Maker Role",
     "LinkedIn Search Strategy",
-    "Email Pattern",
-    "Email Confidence",
+    "Public Contact Email (Verified)",
+    "Email Department",
+    "Email Verification Status",
+    "Email Pattern (Decision Maker)",
     "Why AP Fits",
     "Confidence Score",
     "Source",
     "Last Updated",
-    "Outreach Email Draft"
+    "Outreach Email (English)",
+    "Outreach Email (German)",
 ]
 
 
@@ -136,7 +139,7 @@ class SheetsPusher:
 
         body = {
             "requests": [
-                # Bold header
+                # Bold header with dark blue background
                 {
                     "repeatCell": {
                         "range": {
@@ -146,7 +149,6 @@ class SheetsPusher:
                         },
                         "cell": {
                             "userEnteredFormat": {
-                                "textFormat": {"bold": True},
                                 "backgroundColor": {
                                     "red": 0.2,
                                     "green": 0.3,
@@ -247,15 +249,33 @@ class SheetsPusher:
 
             # Concatenate evidence types from pain signals
             evidence_types = set()
-            sources = []
             for signal in company.get("pain_signals", []):
                 evidence_types.add(signal.get("evidence_type", "unknown"))
 
-            # Get email pattern info
-            from src.email_patterns import format_pattern_display, get_confidence
+            # Get verified public contact email
+            public_contacts = company.get("public_contacts", {})
+            verified_emails = company.get("verified_emails", {})
+            public_verified = verified_emails.get("public_verified", [])
+
+            # Best public email: first verified, then fallback
+            public_email = ""
+            email_dept = ""
+            email_status = ""
+
+            if public_verified:
+                best = public_verified[0]
+                public_email = best.get("email", "")
+                email_dept = best.get("department", "unknown")
+                email_status = best.get("verdict", "UNKNOWN")
+            elif public_contacts.get("fallback_email"):
+                public_email = public_contacts["fallback_email"]
+                email_dept = "unverified"
+                email_status = "SCRAPED (not SMTP verified)"
+
+            # Email pattern for decision maker (not a guess, just the pattern)
+            from src.email_patterns import format_pattern_display
             email_domain = company.get("email_domain", company.get("website", ""))
             email_pattern = company.get("email_pattern", format_pattern_display(email_domain))
-            email_confidence = company.get("email_confidence", get_confidence(email_domain))
 
             row = [
                 company.get("name", ""),
@@ -265,20 +285,23 @@ class SheetsPusher:
                 ", ".join(evidence_types),
                 company.get("decision_maker_role", ""),
                 company.get("linkedin_search", ""),
+                public_email,
+                email_dept,
+                email_status,
                 email_pattern,
-                email_confidence,
-                ap_fit_text.strip()[:500],  # Truncate for cell readability
+                ap_fit_text.strip()[:500],
                 str(company.get("scores", {}).get("total", 0)),
-                "",  # Source URLs would go here
+                "",  # Source URLs
                 datetime.now().isoformat(),
-                company.get("outreach_email", "")
+                company.get("outreach_email_en", ""),
+                company.get("outreach_email_de", ""),
             ]
             rows.append(row)
 
         if dry_run:
             logger.info(f"[DRY RUN] Would create tab '{tab_name}' with {len(rows) - 1} companies")
             for row in rows[1:]:
-                logger.info(f"  → {row[0]} | Score: {row[10]} | Sector: {row[2]}")
+                logger.info(f"  > {row[0]} | Score: {row[12]} | Public Email: {row[7] or 'NONE'} | Status: {row[9]}")
             return {
                 "tab_name": tab_name,
                 "total_input": len(companies),
