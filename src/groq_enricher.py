@@ -34,8 +34,8 @@ class GroqEnricher:
         else:
             self.enabled = True
 
-    def _call_groq(self, prompt: str, max_tokens: int = 800) -> Optional[str]:
-        """Make a single Groq API call."""
+    def _call_groq(self, prompt: str, max_tokens: int = 800, max_retries: int = 3) -> Optional[str]:
+        """Make a Groq API call with exponential backoff for rate limits."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -65,22 +65,39 @@ class GroqEnricher:
             "temperature": 0.7
         }
 
-        try:
-            response = requests.post(
-                self.GROQ_API_URL,
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            response.raise_for_status()
-            data = response.json()
-            result = data["choices"][0]["message"]["content"].strip()
-            # Post-process: remove any em/en dashes that slipped through
-            result = result.replace("\u2014", "-").replace("\u2013", "-").replace("\u2012", "-")
-            return result
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Groq API call failed: {e}")
-            return None
+        retry_delay = 5  # Start with 5s delay on 429
+        for attempt in range(max_retries + 1):
+            try:
+                response = requests.post(
+                    self.GROQ_API_URL,
+                    headers=headers,
+                    json=payload,
+                    timeout=30
+                )
+                
+                if response.status_code == 429:
+                    if attempt < max_retries:
+                        logger.warning(f"  Rate limit hit (429). Retrying in {retry_delay}s... (Attempt {attempt+1}/{max_retries})")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                    else:
+                        logger.error("Rate limit hit and max retries exhausted.")
+                        return None
+                        
+                response.raise_for_status()
+                # Post-process: remove any em/en dashes that slipped through
+                data = response.json()
+                result = data["choices"][0]["message"]["content"].strip()
+                result = result.replace("\u2014", "-").replace("\u2013", "-").replace("\u2012", "-")
+                return result
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries:
+                    logger.warning(f"  Request failed: {e}. Retrying in 2s...")
+                    time.sleep(2)
+                    continue
+                logger.error(f"Groq API call failed after {max_retries} retries: {e}")
+                return None
 
     def _build_prompt(self, company: Dict, ap_advantages: Dict, language: str = "english") -> str:
         """Build the email generation prompt for a specific language."""
@@ -181,7 +198,8 @@ MANDATORY ELEMENTS (include ALL of these):
         en_prompt = self._build_prompt(company, ap_advantages, language="english")
         english_draft = self._call_groq(en_prompt)
 
-        time.sleep(1.0)  # Brief pause between calls
+        # Longer pause between EN and DE to stay under TPM
+        time.sleep(3.0) 
 
         # Generate German draft
         de_prompt = self._build_prompt(company, ap_advantages, language="german")
@@ -192,7 +210,7 @@ MANDATORY ELEMENTS (include ALL of these):
             "german": german_draft or "[German email generation failed]"
         }
 
-    def enrich_all(self, companies: list, ap_advantages: Dict, delay: float = 1.5) -> list:
+    def enrich_all(self, companies: list, ap_advantages: Dict, delay: float = 4.0) -> list:
         """
         Generate outreach emails for all companies.
         Returns companies list with 'outreach_email_en' and 'outreach_email_de' fields added.
@@ -205,6 +223,7 @@ MANDATORY ELEMENTS (include ALL of these):
             return companies
 
         logger.info(f"Generating dual outreach emails (EN+DE) for {len(companies)} companies via Groq API...")
+        logger.info("Using 4s delay between companies + 3s between drafts to avoid rate limits.")
 
         for i, company in enumerate(companies):
             logger.info(f"  [{i+1}/{len(companies)}] Generating emails for {company.get('name', 'Unknown')}...")
@@ -212,9 +231,10 @@ MANDATORY ELEMENTS (include ALL of these):
             company["outreach_email_en"] = drafts["english"]
             company["outreach_email_de"] = drafts["german"]
 
-            # Rate limiting (2 API calls per company, so slightly longer delay)
+            # Rate limiting (increased to 4s)
             if i < len(companies) - 1:
                 time.sleep(delay)
 
         logger.info("Dual email generation complete.")
         return companies
+
