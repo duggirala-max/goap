@@ -1,5 +1,19 @@
 # GoAP Sector Configuration
 # Pain signal keywords and scoring weights for each target sector
+# Expanded to cover EU-wide distressed companies (Germany, Austria, France, Netherlands, Sweden, Italy)
+
+# Target countries for news scanning
+target_countries:
+  - "Germany"
+  - "Austria"
+  - "France"
+  - "Netherlands"
+  - "Sweden"
+  - "Italy"
+  - "Belgium"
+  - "Finland"
+  - "Czech Republic"
+  - "Spain"
 
 sectors:
   automotive_components:
@@ -14,6 +28,8 @@ sectors:
       - "drivetrain"
       - "braking systems"
       - "chassis"
+      - "fournisseur automobile"
+      - "leverancier automotive"
     pain_keywords:
       - "restructuring"
       - "Restrukturierung"
@@ -31,6 +47,9 @@ sectors:
       - "site consolidation"
       - "capacity reduction"
       - "production shift"
+      - "restructuration"
+      - "fermeture usine"
+      - "licenciement"
     expansion_keywords:
       - "overseas expansion"
       - "international growth"
@@ -63,6 +82,8 @@ sectors:
       - "subsidy cuts"
       - "overcapacity"
       - "margin pressure"
+      - "bankruptcy"
+      - "insolvency"
     expansion_keywords:
       - "gigafactory"
       - "cell production"
@@ -170,6 +191,11 @@ scoring:
     mittelstand: 3  # 50-5000 employees
     mid_cap: 2      # 5000-20000
     large_cap: 0    # >20000 (only if clear expansion signal)
+
+  # News freshness bonus (A2)
+  freshness_bonus:
+    within_7_days: 3
+    within_30_days: 1
 
   # Minimum score to include in output
   min_score: 5

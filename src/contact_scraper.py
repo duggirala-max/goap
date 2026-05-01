@@ -275,3 +275,105 @@ def scrape_all_companies(companies: List[Dict], delay: float = 1.5) -> List[Dict
     logger.info(f"Contact scraping complete: {total_with_emails}/{len(companies)} companies have public emails")
 
     return companies
+
+
+# ================================================================
+# B4: Career Page Scanner for expansion signals
+# ================================================================
+
+CAREER_PATHS = [
+    "/career",
+    "/careers",
+    "/karriere",
+    "/en/career",
+    "/en/careers",
+    "/jobs",
+    "/en/jobs",
+    "/career/jobs",
+    "/careers/search",
+]
+
+EXPANSION_KEYWORDS = [
+    "india", "indien", "asia", "asien", "southeast asia",
+    "andhra pradesh", "hyderabad", "chennai", "pune", "bangalore",
+    "relocation", "expansion", "new location", "new site",
+    "emerging market", "global footprint", "international",
+    "plant manager", "site director", "country manager india",
+]
+
+
+def _scan_career_page(url: str, timeout: int = 10) -> Dict:
+    """Scan a career page for expansion-related keywords."""
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+        if response.status_code != 200:
+            return {"found": False}
+
+        page_text = response.text.lower()
+        matches = []
+        for keyword in EXPANSION_KEYWORDS:
+            if keyword in page_text:
+                matches.append(keyword)
+
+        return {
+            "found": len(matches) > 0,
+            "keywords_matched": matches,
+            "source_url": url
+        }
+    except Exception:
+        return {"found": False}
+
+
+def scan_career_pages(companies: List[Dict], delay: float = 1.0) -> List[Dict]:
+    """
+    B4: Scan company career pages for job postings mentioning India, Asia,
+    or expansion-related keywords. Adds 'career_signals' field.
+    """
+    logger.info(f"B4: Scanning career pages for {len(companies)} companies for expansion signals...")
+
+    for i, company in enumerate(companies):
+        website = company.get("website", "")
+        if not website:
+            company["career_signals"] = {"found": False, "keywords_matched": [], "source_url": ""}
+            continue
+
+        if not website.startswith("http"):
+            base_url = f"https://www.{website}"
+        else:
+            base_url = website
+
+        best_result = {"found": False, "keywords_matched": [], "source_url": ""}
+
+        for path in CAREER_PATHS:
+            url = urljoin(base_url + "/", path.lstrip("/"))
+            result = _scan_career_page(url)
+
+            if result["found"]:
+                if len(result.get("keywords_matched", [])) > len(best_result.get("keywords_matched", [])):
+                    best_result = result
+                break  # Found signals, no need to check more paths
+
+            time.sleep(delay * 0.2)
+
+        company["career_signals"] = best_result
+
+        if best_result["found"]:
+            logger.info(f"  [{i+1}/{len(companies)}] {company.get('name', '')}: EXPANSION SIGNALS detected: {best_result['keywords_matched']}")
+        else:
+            logger.debug(f"  [{i+1}/{len(companies)}] {company.get('name', '')}: No career expansion signals")
+
+        if i < len(companies) - 1:
+            time.sleep(delay * 0.5)
+
+    signals_found = sum(1 for c in companies if c.get("career_signals", {}).get("found", False))
+    logger.info(f"B4: Career scan complete: {signals_found}/{len(companies)} companies show expansion signals")
+
+    return companies

@@ -238,3 +238,186 @@ MANDATORY ELEMENTS (include ALL of these):
         logger.info("Dual email generation complete.")
         return companies
 
+    # ================================================================
+    # B1: Auto-extract new companies from news headlines (BATCHED)
+    # ================================================================
+
+    def extract_companies_from_news(self, unmatched_news: list, max_headlines: int = 30) -> list:
+        """
+        B1: Send a batch of unmatched news headlines to Groq and ask it to
+        extract EU-based manufacturing/automotive companies with pain signals.
+        Uses a SINGLE API call to minimize rate limit impact.
+
+        Returns list of dicts: [{name, country, sector, why_target, pain_signals, ...}]
+        """
+        if not self.enabled:
+            return []
+
+        if not unmatched_news:
+            logger.info("No unmatched news headlines for auto-discovery.")
+            return []
+
+        # Build headline batch (limit to prevent token overflow)
+        headlines = []
+        for item in unmatched_news[:max_headlines]:
+            headlines.append(f"- [{item.get('sector', '')}] {item['headline']} (Source: {item.get('source', '')})")
+
+        headlines_text = "\n".join(headlines)
+
+        prompt = f"""Analyze these news headlines and extract EU-based companies that appear to be under operational pressure.
+
+HEADLINES:
+{headlines_text}
+
+For each company you identify, provide ONLY the following JSON array (no other text):
+[
+  {{
+    "name": "Company Name",
+    "country": "Country",
+    "sector": "automotive_components|ev_components|manufacturing|food_processing|food_processing_equipment",
+    "why_target": "Brief explanation of their pain signal based on the headline",
+    "pain_type": "restructuring|plant_closure|job_cuts|insolvency|cost_cutting|margin_pressure",
+    "headline": "The original headline",
+    "confidence": "LIKELY"
+  }}
+]
+
+RULES:
+1. Only include companies headquartered in EU high-cost countries (Germany, France, Italy, Austria, Sweden, Netherlands, Belgium, Finland, Spain, Czech Republic).
+2. Only include companies in manufacturing, automotive, EV, or food processing sectors.
+3. Only include companies showing clear distress signals (restructuring, closures, job cuts, insolvency).
+4. Do NOT include companies you are not sure about.
+5. Do NOT include news agencies, consulting firms, or banks.
+6. Return ONLY the JSON array, nothing else. If no companies found, return [].
+"""
+
+        logger.info(f"B1: Analyzing {len(headlines)} unmatched headlines for new company discovery...")
+        result = self._call_groq(prompt, max_tokens=1500)
+
+        if not result:
+            logger.warning("B1: Groq extraction failed.")
+            return []
+
+        # Parse JSON response
+        try:
+            # Clean up response (sometimes LLM wraps in markdown)
+            cleaned = result.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[1]
+                cleaned = cleaned.rsplit("```", 1)[0]
+            
+            companies = json.loads(cleaned)
+            if not isinstance(companies, list):
+                return []
+
+            # Convert to standard company format
+            discovered = []
+            for c in companies:
+                company = {
+                    "name": c.get("name", ""),
+                    "country": c.get("country", "Unknown"),
+                    "sector": c.get("sector", "manufacturing"),
+                    "size_class": "mid_cap",
+                    "website": "",
+                    "pain_signals": [{
+                        "type": c.get("pain_type", "restructuring"),
+                        "detail": c.get("why_target", ""),
+                        "evidence_type": "news_discovery",
+                        "confidence": "LIKELY"
+                    }],
+                    "why_target": c.get("why_target", ""),
+                    "decision_maker_role": "Head of International Operations / VP Manufacturing",
+                    "linkedin_search": f"{c.get('name', '')} VP Operations OR Director Manufacturing",
+                    "email_domain": "",
+                    "email_pattern": "Unknown",
+                    "email_confidence": "UNKNOWN",
+                    "ap_fit_sector": c.get("sector", "manufacturing"),
+                    "source": "news_discovery",
+                    "discovery_headline": c.get("headline", "")
+                }
+                if company["name"]:
+                    discovered.append(company)
+
+            logger.info(f"B1: Discovered {len(discovered)} new companies from news headlines")
+            return discovered
+
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            logger.warning(f"B1: Failed to parse Groq response: {e}")
+            return []
+
+    # ================================================================
+    # B3: Competitor presence in India (BATCHED)
+    # ================================================================
+
+    def get_competitor_presence(self, companies: list) -> list:
+        """
+        B3: For a batch of companies, ask Groq (single call) whether their
+        competitors already have operations in India.
+        Adds 'competitor_india' field to each company.
+        """
+        if not self.enabled:
+            for c in companies:
+                c["competitor_india"] = "[Groq not configured]"
+            return companies
+
+        if not companies:
+            return companies
+
+        # Build company list for batch query
+        company_list = []
+        for c in companies:
+            company_list.append(f"- {c.get('name', '')} ({c.get('sector', '')}, {c.get('country', '')})")
+
+        companies_text = "\n".join(company_list)
+
+        prompt = f"""For each company below, identify if their DIRECT COMPETITORS already have manufacturing or operations in India.
+
+COMPANIES:
+{companies_text}
+
+Return a JSON object mapping company names to their competitor presence info:
+{{
+  "Company Name": "Competitor X has plant in Tamil Nadu. Competitor Y has R&D center in Pune.",
+  "Another Company": "No major competitors in India yet."
+}}
+
+RULES:
+1. Only mention REAL, verified competitor operations in India.
+2. Be specific: name the competitor, the location, and the type of operation.
+3. If you are not sure, say "No confirmed competitor presence in India."
+4. Keep each entry to 1-2 sentences max.
+5. Return ONLY the JSON object, nothing else.
+"""
+
+        logger.info(f"B3: Checking competitor presence in India for {len(companies)} companies...")
+        time.sleep(3)  # Rate limit buffer
+        result = self._call_groq(prompt, max_tokens=1500)
+
+        if not result:
+            for c in companies:
+                c["competitor_india"] = "[Competitor analysis failed]"
+            return companies
+
+        try:
+            cleaned = result.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[1]
+                cleaned = cleaned.rsplit("```", 1)[0]
+
+            competitor_data = json.loads(cleaned)
+            if not isinstance(competitor_data, dict):
+                raise ValueError("Not a dict")
+
+            for c in companies:
+                name = c.get("name", "")
+                c["competitor_india"] = competitor_data.get(name, "No data available")
+
+            logger.info("B3: Competitor presence analysis complete.")
+
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+            logger.warning(f"B3: Failed to parse competitor data: {e}")
+            for c in companies:
+                c["competitor_india"] = "[Parse error]"
+
+        return companies
+

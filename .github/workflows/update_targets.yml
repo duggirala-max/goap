@@ -1,20 +1,25 @@
-name: GoAP - Update FDI Target List
+name: GoAP v3 - Update FDI Target List
 
 on:
   workflow_dispatch:
     inputs:
+      force_all:
+        description: 'Force all companies (skip deduplication)'
+        required: false
+        type: boolean
+        default: false
       skip_news:
         description: 'Skip news scanning (use seed list only)'
         required: false
         type: boolean
         default: false
       skip_groq:
-        description: 'Skip Groq email generation'
+        description: 'Skip Groq email generation + AI analysis'
         required: false
         type: boolean
         default: false
       skip_scrape:
-        description: 'Skip contact email scraping from websites'
+        description: 'Skip contact/career page scraping'
         required: false
         type: boolean
         default: false
@@ -27,7 +32,7 @@ on:
         description: 'Maximum companies to output'
         required: false
         type: number
-        default: 20
+        default: 25
       dry_run:
         description: 'Dry run (no Sheets update)'
         required: false
@@ -37,7 +42,7 @@ on:
 jobs:
   update-targets:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -52,13 +57,16 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run GoAP Pipeline
+      - name: Run GoAP v3 Pipeline
         env:
           GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
           ARGS=""
+          if [ "${{ inputs.force_all }}" = "true" ]; then
+            ARGS="$ARGS --force-all"
+          fi
           if [ "${{ inputs.skip_news }}" = "true" ]; then
             ARGS="$ARGS --skip-news"
           fi

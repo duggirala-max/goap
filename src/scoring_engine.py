@@ -1,5 +1,5 @@
 """
-GoAP Scoring Engine — Scores companies based on pain signals, sector match, and AP fit.
+GoAP Scoring Engine -- Scores companies based on pain signals, sector match, news freshness, and AP fit.
 """
 
 import logging
@@ -19,6 +19,7 @@ class ScoringEngine:
         self.scoring_config = config.get("scoring", {})
         self.pain_weights = self.scoring_config.get("pain_signals", {})
         self.size_pref = self.scoring_config.get("size_preference", {})
+        self.freshness_bonus = self.scoring_config.get("freshness_bonus", {})
         self.min_score = self.scoring_config.get("min_score", 5)
 
     def _score_pain_signals(self, company: Dict) -> int:
@@ -50,6 +51,34 @@ class ScoringEngine:
             return 0
         return min(len(news_hits) * 2, 6)  # Up to +6 for 3+ news hits
 
+    def _score_freshness(self, news_hits: List[Dict] = None) -> int:
+        """
+        A2: Bonus for news recency.
+        +3 if any article is within 7 days.
+        +1 if any article is within 30 days.
+        """
+        if not news_hits:
+            return 0
+
+        best_freshness = None
+        for hit in news_hits:
+            days = hit.get("freshness_days")
+            if days is not None:
+                if best_freshness is None or days < best_freshness:
+                    best_freshness = days
+
+        if best_freshness is None:
+            return 0
+
+        within_7 = self.freshness_bonus.get("within_7_days", 3)
+        within_30 = self.freshness_bonus.get("within_30_days", 1)
+
+        if best_freshness <= 7:
+            return within_7
+        elif best_freshness <= 30:
+            return within_30
+        return 0
+
     def score_company(self, company: Dict, news_hits: List[Dict] = None) -> Dict:
         """
         Score a single company. Returns company dict with score breakdown.
@@ -57,8 +86,9 @@ class ScoringEngine:
         pain_score = self._score_pain_signals(company)
         size_score = self._score_size(company)
         news_score = self._score_news_activity(news_hits)
+        freshness_score = self._score_freshness(news_hits)
 
-        total_score = pain_score + size_score + news_score
+        total_score = pain_score + size_score + news_score + freshness_score
 
         return {
             **company,
@@ -66,6 +96,7 @@ class ScoringEngine:
                 "pain_signal": pain_score,
                 "size_preference": size_score,
                 "news_activity": news_score,
+                "freshness_bonus": freshness_score,
                 "total": total_score
             }
         }
